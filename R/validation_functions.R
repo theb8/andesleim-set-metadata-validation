@@ -5,25 +5,25 @@
 # libraries 
 library(sf)
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # which_missing()
 # Indices of missing (NA) values in a vector.
 #
 #   x : vector of values
 # returns: integer vector of indices
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 which_missing <- function(x){
     which(!complete.cases(x))
 }
 
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # which_missingxy()
 # Rows with at least one missing start/end latitude or longitude.
 #
 #   set_data : andes set export (data.frame)
 # returns: sorted integer vector of row indices
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 which_missingxy <- function(set_data){
   
   # find indice where values are missing, from any coord field
@@ -38,13 +38,13 @@ which_missingxy <- function(set_data){
   
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # which_missingdepth()
 # Rows with a missing start or end depth.
 #
 #   set_data : andes set export (data.frame)
 # returns: sorted integer vector of row indices
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 which_missingdepth <- function(set_data){
   # find indice where values are missing, from any coord field
   all_depths <- list(set_data$start_depth_m,
@@ -56,14 +56,14 @@ which_missingdepth <- function(set_data){
 }
 
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # missing_coord_recap_table()
 # Subset of key set columns (ids, dates, coords, depths) for display.
 #
 #   set_data        : andes set export (data.frame)
 #   missing_indices : row indices to keep
 # returns: data.frame
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 missing_coord_recap_table <- function(set_data, missing_indices){
   #define cols to display
   cols2display <- c("set_number",
@@ -83,13 +83,13 @@ missing_coord_recap_table <- function(set_data, missing_indices){
 
 
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # suggestion_table()
 # Table of suggested ship coords and timestamps (converted to ET) for the report.
 #
 #   outlier_report : list returned by check_outliers() or check_missingxy()
 # returns: data.frame
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 suggestion_table <- function(outlier_report){
   
   datetime_start_ship_utc <- as.POSIXct(outlier_report$datetime$datetime_start_ship, tz="UTC")
@@ -110,13 +110,13 @@ suggestion_table <- function(outlier_report){
   )
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # find_simple_outlier()
 # Flag outliers using the interquartile range (outside Q1/Q3 -/+ 1.5*IQR).
 #
 #   x : numeric vector (e.g. tow distances)
 # returns: logical vector, TRUE = outlier
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 find_simple_outlier <- function(x){
   Q1 <- quantile(x, 0.25, na.rm = TRUE)
   Q3 <- quantile(x, 0.75, na.rm = TRUE)
@@ -128,7 +128,7 @@ find_simple_outlier <- function(x){
 }
 
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # find_timelag()
 # Mean clock offset between andes and the ship. Pairs andes and ship trackpoints
 # that are within 4 min and 5 m of each other, then averages their time difference.
@@ -137,7 +137,7 @@ find_simple_outlier <- function(x){
 #   andes_track : andes track points (sf, with $time)
 #   ship_track  : ship track points (sf, with $time)
 # returns: difftime in seconds
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 find_timelag <- function(andes_track, ship_track){
   
   # fx params
@@ -198,7 +198,7 @@ find_timelag <- function(andes_track, ship_track){
   
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # find_timestamp_from_fishingevent()
 # Start and end timestamps of a set from the fishing events file.
 # Stops if the set does not have exactly 2 events (start and end).
@@ -206,7 +206,7 @@ find_timelag <- function(andes_track, ship_track){
 #   set_num           : set number
 #   fishingevent_data : andes fishing events (data.frame)
 # returns: named POSIXct vector (start, end), UTC
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 find_timestamp_from_fishingevent <- function(set_num, fishingevent_data){
   
   # find the two matching sets entries
@@ -229,7 +229,7 @@ find_timestamp_from_fishingevent <- function(set_num, fishingevent_data){
                              end=as.POSIXct(fishingevent_subset$datetime[end_indice], tz="UTC"))
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # ship_wp_find_tow()
 # Keep only tow start/end waypoints, i.e. those named "YYYY-MM-DD HH:MM:SS"
 # for the mission year (drops CTD, station and other waypoints).
@@ -237,7 +237,7 @@ find_timestamp_from_fishingevent <- function(set_num, fishingevent_data){
 #   ship_wp    : ship waypoints (sf)
 #   mission_id : mission id, e.g. "IML-2026-020"
 # returns: sf subset of ship_wp
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 ship_wp_find_tow <- function(ship_wp, mission_id){
   
   mission_id_compact <- gsub(pattern = "-", replacement = "", mission_id)
@@ -250,13 +250,13 @@ ship_wp_find_tow <- function(ship_wp, mission_id){
 
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # tow_distance()
 # Distance between start and end position of each set.
 #
 #   set_data_filtered : andes set export without missing coords (data.frame)
 # returns: numeric vector of distances (m)
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 tow_distance <- function(set_data_filtered){
 
   # as sf object
@@ -285,7 +285,7 @@ tow_distance <- function(set_data_filtered){
 }
 
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # check_outliers()
 # For outlier sets, match andes start/end times with the closest ship waypoints
 # and suggest the ship positions instead.
@@ -294,7 +294,7 @@ tow_distance <- function(set_data_filtered){
 #   ship_wp_tow           : ship tow waypoints (sf), see ship_wp_find_tow()
 #   ship_wp_timecorrected : waypoint times shifted to the andes clock (POSIXct)
 # returns: list: dist, datetime, coord_start/end_andes, coord_start/end_ship
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 check_outliers <- function(set_data_outlier, ship_wp_tow, ship_wp_timecorrected){
   
   n_outliers <- dim(set_data_outlier)[1]
@@ -429,7 +429,7 @@ check_outliers <- function(set_data_outlier, ship_wp_tow, ship_wp_timecorrected)
   
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # check_missingxy()
 # For sets with missing coords, take start/end times from the fishing events
 # and suggest the positions of the closest ship waypoints.
@@ -439,7 +439,7 @@ check_outliers <- function(set_data_outlier, ship_wp_tow, ship_wp_timecorrected)
 #   ship_wp_timecorrected : waypoint times shifted to the andes clock (POSIXct)
 #   fishingevent_data     : andes fishing events (data.frame)
 # returns: list: dist, datetime, coord_start/end_ship (andes coords are NULL)
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 check_missingxy <- function(set_data_missingxy, ship_wp_tow, ship_wp_timecorrected, fishingevent_data){
   
   n <- dim(set_data_missingxy)[1]
@@ -574,7 +574,7 @@ check_missingxy <- function(set_data_missingxy, ship_wp_tow, ship_wp_timecorrect
   )
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # check_missingdepth()
 # For sets with missing depth, take start/end times from the fishing events
 # and suggest the closest sensor depth readings.
@@ -583,7 +583,7 @@ check_missingxy <- function(set_data_missingxy, ship_wp_tow, ship_wp_timecorrect
 #   depth_data            : true depth sensor data, see get_true_depth()
 #   fishingevent_data     : andes fishing events (data.frame)
 # returns: list: depth (before/after), date (before/after), new (suggested values)
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 check_missingdepth <- function(set_data_missingdepth, depth_data, fishingevent_data){
   
   n <- dim(set_data_missingdepth)[1]
@@ -726,7 +726,7 @@ check_missingdepth <- function(set_data_missingdepth, depth_data, fishingevent_d
 } 
 
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # plot_outlier_replacement()
 # One map per outlier set: andes tow (orange), suggested ship tow (green)
 # and planned station position (black).
@@ -734,7 +734,7 @@ check_missingdepth <- function(set_data_missingdepth, depth_data, fishingevent_d
 #   report   : list returned by check_outliers()
 #   sta_data : andes stations (sf)
 # returns: nothing, draws plots
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 plot_outlier_replacement <- function(report, sta_data){
   
   n_station <- dim(report$coord_start_ship)[1]
@@ -849,7 +849,7 @@ plot_outlier_replacement <- function(report, sta_data){
   }
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # plot_missingxy_replacement()
 # One map per set with missing coords: suggested ship tow (green)
 # and planned station position (black).
@@ -857,7 +857,7 @@ plot_outlier_replacement <- function(report, sta_data){
 #   report   : list returned by check_missingxy()
 #   sta_data : andes stations (sf)
 # returns: nothing, draws plots
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 plot_missingxy_replacement <- function(report, sta_data){
   
   n_station <- dim(report$coord_start_ship)[1]
@@ -947,13 +947,13 @@ plot_missingxy_replacement <- function(report, sta_data){
   }
 }
 
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 # get_true_depth()
 # Keep only the "true_depth" rows of the sensor data.
 #
 #   sens_data : andes sensor data (data.frame)
 # returns: data.frame
-# ----------------------------------------------------------------------
+# -------------------------------------------------------------------- -
 get_true_depth <- function(sens_data){
   mask <- sens_data$type == "true_depth"
   depth_data <- sens_data[mask,]
