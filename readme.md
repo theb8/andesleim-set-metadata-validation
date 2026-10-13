@@ -73,8 +73,6 @@ reports/                  # rapports générés
 
 ## Limites connues
 
-- Le décalage d'horloge entre Andes et le navire est actuellement fixé à 48 s dans
-  `validation_report.Rmd`. Le calcul automatique (`find_timelag()`) est désactivé parce
-  qu'il est lent.
+- L'utilisateur doit faire les modifications manuellement dans andes. Faire attention aux fuseaux horaires lors de la transcription des dates.
 
 Auteur : A. Théberge
