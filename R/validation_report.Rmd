@@ -128,8 +128,7 @@ Il est important de confirmer que les noms des *waypoints* sont bel et bien en f
 
 ```{r ship_1, echo=F}
 # compute the mean time lag (shit step can take a good minute)
-#timelag <- find_timelag(andes_track, ship_track)
-timelag <- as.difftime(48, units="secs")
+timelag <- find_timelag(andes_track, ship_track)
 
 ship_wp_tow <- ship_wp_find_tow(ship_wp, mission_id)
 
