@@ -1,5 +1,5 @@
 .Rproj.user/
 .Rhistory
 .Rdata
-.html
-.csv
+*.html
+*.csv
