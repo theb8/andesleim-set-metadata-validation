@@ -1,0 +1,358 @@
+---
+title: "Validation sommaire : `r params$mission_id`"
+author: "`r Sys.info()[['user']]`"
+date: "`r format(Sys.time(), '%Y-%m-%d %H:%M')`"
+output: html_document
+params:
+  mission_id: ""
+  mission_id_compact: ""
+  sta_path: ""
+  set_path: ""
+  fishevent_path: ""
+  sensor_path: ""
+  ship_xycoord_path: ""
+  andes_xycoord_path: ""
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+source("validation_functions.R")
+enco <- "latin1"
+
+# load andes data
+set_data <- read.csv(params$set_path, encoding = enco)
+sta_data <- st_read(params$sta_path, layer="waypoints")
+fishingevent_data <- read.csv(params$fishevent_path, encoding = enco)
+sens_data <- read.csv(params$sensor_path, encoding = enco)
+andes_track <- st_read(params$andes_xycoord_path, layer="track_points")
+
+# load ship data
+ship_track <- st_read(params$ship_xycoord_path, layer="track_points")
+ship_wp <- st_read(params$ship_xycoord_path, layer="waypoints")
+
+#rebuild the "set" file name
+string_parts <- strsplit(set_path, split = "/")[[1]] 
+set_file <- string_parts[length(string_parts)]
+``` 
+
+**Mission:** `r params$mission_id`  
+**Set file:** `r set_file`  
+
+Note : Cette routine de validation n'effectue aucune corrections. Pour l'instant elle n'affiche que les irrégularités et propose des corrections à l'utilisateur. L'utilisateur doit manuellement effectuer les corrections dans l'application.
+
+```{r test, include=FALSE}
+# test parameters
+if(params$mission_id != set_data$mission_number[1]){stop("mission number do not match input file")}
+```
+
+```{r removeCTD, include=F}
+# split ctd sets from the rest
+ctd_mask <- set_data$operations == "CTD"
+set_data_ctd <- set_data[ctd_mask,]
+
+#this will be the fishing dataset
+set_data <- set_data[!ctd_mask,]
+
+```
+
+```{r missingxy_1, include=F}
+# find missing xy coords
+missingxy <- which_missingxy(set_data)
+set_data_missingxy <- set_data[missingxy,] #subset
+n_missingxy <- dim(set_data_missingxy)[1]
+eval_missingxy <- as.logical(n_missingxy)
+```
+
+
+## Distances de draguage
+
+Statistiques descriptives sur la distance draguée lors du relevé. La figure plus bas indique des possibles *outliers* trouvés en utilisant l'écart interquartile.
+
+
+```{r descstat_1, echo=F}
+# compute towing distance
+######################## #
+set_data_filtered <- set_data[-missingxy,]
+n_filtered <- dim(set_data_filtered)[1]
+
+# if no missing just copy the entire thing
+if(n_filtered == 0){
+  set_data_filtered <- set_data
+  n_filtered <- dim(set_data_filtered)[1]
+}
+
+towDistances <- tow_distance(set_data_filtered)
+summary(towDistances)
+```
+
+
+```{r outlier_1, echo=F}
+#create a outlier subset
+###################### #
+outlier_mask <- find_simple_outlier(towDistances)
+n_outlier <- sum(outlier_mask)
+eval_outlier <- as.logical(n_outlier)
+towDistances_outlier <- towDistances # copy values
+towDistances_outlier[!outlier_mask] <- NA # set non-outlier to NA
+set_data_outlier <- set_data_filtered[outlier_mask,] #outlier subset
+```
+
+
+```{r descstat_2, echo=F}
+plot(1:n_filtered,towDistances,
+     pch=16, 
+     cex=0.75,
+     col="grey",
+     xlab = "Number of sets",
+     ylab = "Towing distance (m)",
+     main="Outliers according to IQR method")
+points(1:n_filtered, towDistances_outlier, pch=1, cex=1.25, col="red")
+legend("right",
+ legend = c("All tows", "Outlier"),
+ pch = c(16, 1),
+ pt.cex = c(0.75, 1.25),
+ col = c("gray","red"),
+ bty = "n"
+)  
+
+```
+
+Total *outliers* repérés : `r n_outlier`
+
+### Comparaison avec le positionnement du navire
+
+Lorsque les coordonnées d'un trait de pêche sont considérées non valides la solution est d'utiliser les coordonnées enregistrées par le système de navigation du navire lui-même. La position de début et de fin de chaque coup de drague est enregistré dans le logiciel de navigation sous forme d'un *waypoint*. Ces positions n'ont pas de métadonnées en soi mais le titre du *waypoint* (*$name*) correspond à un *string* date+heure au moment de sa création.
+
+Il est important de confirmer que les noms des *waypoints* sont bel et bien en format Eastern Time (ET) et non en UTC; le programme assume que le nom des *waypoints* correspond au fuseau horaire ET (c.-à.-d. EDT/UTC-4 en été).
+
+```{r ship_1, echo=F}
+# compute the mean time lag (shit step can take a good minute)
+#timelag <- find_timelag(andes_track, ship_track)
+timelag <- as.difftime(48, units="secs")
+
+ship_wp_tow <- ship_wp_find_tow(ship_wp, mission_id)
+
+# shift the ship's clock to match andes clock
+ship_wp_time <- as.POSIXct(ship_wp_tow$name, tz = "America/toronto")
+ship_wp_timecorrected <- ship_wp_time + timelag
+
+```
+
+L'horloge navire a été corrigée et transposée en fonction de l'horloge du système andes. Le décalage moyen entre les deux horloges est calculé et appliqué comme facteur de correction sur l'horloge navire (voir `find_timelag()`). Le décalage calculé pour ce relevé est de `r timelag` `r attributes(timelag)$units`.
+
+```{r outlier_2, echo=F, eval=eval_outlier}
+outlier_report <- check_outliers(set_data_outlier, 
+                                 ship_wp_tow, 
+                                 ship_wp_timecorrected)
+
+knitr::kable(caption = "Distance de dragage (m) selon les deux différentes sources de positionnement",
+             outlier_report$dist, 
+             format = "html",
+             row.names = F,
+             col.names = c("trait",
+                           "station",
+                           "distance (andes)",
+                           "distance (coord navire)"),
+             table.attr = 'class="table vlines"')
+
+knitr::kable(caption = "Comparaison des *timestamps* des deux sources positionnement",
+             outlier_report$datetime, 
+             format = "html",
+             row.names = F,
+             col.names=c("trait",
+                         "station",
+                         "date début andes",
+                         "date fin andes",
+                         "date début navire",
+                         "date fin navire",
+                         "différence début",
+                         "différence fin"),
+             table.attr = 'class="table vlines"')
+
+
+plot_outlier_replacement(outlier_report, sta_data)
+```
+
+
+### Coordonnées suggérées
+
+
+```{r, outlier_3, echo=F, eval=eval_outlier}
+
+# create the suggestion table
+sug_table <- suggestion_table(outlier_report)
+
+knitr::kable(caption = "Position et timestamp suggérées",
+             sug_table, 
+             format = "html",
+             row.names = F,
+             col.names = c("trait",
+                           "station",
+                           "coord. début",
+                           "coord. fin",
+                           "date début (ET)",
+                           "date fin (ET)"),
+             table.attr = 'class="table vlines"')
+```
+
+*1- À noter que l'app. andes "Gestionnaire de station" affiche les dates selon le fuseau horaire local (ET; EDT en été).*<br>
+*2- À noter qu'il est possible de copier une valeur en format décimal "séparateur point" dans l'app. andes lorsqu'on modifie manuellement la position d'un trait. La page suggère un format décimal "séparateur virgule" mais en réalité l'app. accepte les deux formats.*
+
+## Coordonnées manquantes
+
+```{r missingxy_2, echo=F, eval = eval_missingxy}
+recap_table <- missing_coord_recap_table(set_data, missingxy)
+
+knitr::kable(caption='Traits avec au moins une coordonnée manquante dans les métadonnées ("information du trait").',
+             recap_table, 
+             format = "html", 
+             row.names = F, 
+             table.attr = 'class="table vlines"')
+
+```
+
+```{r missingxy_3, echo=F, eval=eval_missingxy}
+missingxy_report <- check_missingxy(set_data_missingxy,
+                                ship_wp_tow,
+                                ship_wp_timecorrected,
+                                fishingevent_data)
+
+knitr::kable(caption = "Nouvelle distance de dragage (m) suggérée pour les stations avec coordonnée(s) manquante(s)",
+             missingxy_report$dist, 
+             format = "html",
+             row.names = F,
+             col.names = c("trait",
+                           "station",
+                           "distance (coord navire)"),
+             table.attr = 'class="table vlines"')
+
+knitr::kable(caption = "Nouveaux *timestamps* suggérés pour les stations avec coordonnée(s) manquante(s)",
+             missingxy_report$datetime, 
+             format = "html",
+             row.names = F,
+             col.names=c("trait",
+                         "station",
+                         "date début navire",
+                         "date fin navire"),
+             table.attr = 'class="table vlines"')
+
+plot_missingxy_replacement(missingxy_report, sta_data)
+```
+
+### Coordonnées suggérées
+
+```{r msg_missingxy, eval=!eval_missingxy, echo=F}
+cat("(!) Aucune observation de coordonnées xy manquante")
+```
+
+```{r missingxy_4, echo=F, eval=eval_missingxy}
+sug_table <- suggestion_table(missingxy_report)
+
+knitr::kable(caption = "Position et timestamp suggérées",
+             sug_table, 
+             format = "html",
+             row.names = F,
+             col.names = c("trait",
+                           "station",
+                           "coord. début",
+                           "coord. fin",
+                           "date début (ET)",
+                           "date fin (ET)"),
+             table.attr = 'class="table vlines"')
+
+```
+
+*1- À noter que l'app. andes "Gestionnaire de station" affiche les dates selon le fuseau horaire local (ET; EDT en été).*<br>
+*2- À noter qu'il est possible de copier une valeur en format décimal "séparateur point" dans l'app. andes lorsqu'on modifie manuellement la position d'un trait. La page suggère un format décimal "séparateur virgule" mais en réalité l'app. accepte les deux formats.*
+
+## Profondeurs manquantes
+
+L'application lit les données de profondeurs "brutes" (rapport : "Données du senseur") afin de suggérer de nouvelles valeurs de profondeur. Les valeurs suggérées sont uniquement basées sur l'heure du trait.
+
+```{r depth_1, echo=F}
+# get the depth data
+depth_data <- get_true_depth(sens_data)
+
+missingdepth_indice <- which_missingdepth(set_data)
+
+n_missingdepth <- length(missingdepth_indice)
+eval_missingdepth <- as.logical(n_missingdepth)
+```
+
+```{r depth_2, echo=F, eval=eval_missingdepth}
+
+recap_table <- missing_coord_recap_table(set_data, missingdepth_indice)
+
+knitr::kable(caption='Traits avec au moins une valeur de prof. manquante dans les métadonnées ("information du trait").',
+             recap_table, 
+             format = "html", 
+             row.names = F, 
+             table.attr = 'class="table vlines"')
+
+# make a subset 
+set_data_missingdepth <- set_data[missingdepth_indice, ]
+
+missingdepth_report <- check_missingdepth(set_data_missingdepth, depth_data, fishingevent_data)
+#print(missingdepth_report$depth)
+#print(missingdepth_report$date)
+
+
+knitr::kable(caption='Comparaison de la prof.',
+             missingdepth_report$depth, 
+             format = "html", 
+             row.names = F, 
+             col.names = c("trait",
+                           "station",
+                           "prof. originale debut (m)",
+                           "prof. originale fin (m)",
+                           "prof trouvée debut (m)",
+                           "prof trouvée fin(m)"),
+             table.attr = 'class="table vlines"')
+
+knitr::kable(caption='Comparaison de la date+heure',
+             missingdepth_report$date, 
+             format = "html", 
+             row.names = F, 
+             col.names = c("trait",
+                           "station",
+                           "date originale debut (ET)",
+                           "date originale fin (ET)",
+                           "date trouvée debut (ET)",
+                           "date trouvée fin(ET)",
+                           "diff. début",
+                           "diff. fin"),
+             table.attr = 'class="table vlines"')
+
+
+```
+
+
+### Coordonnées suggérées
+
+```{r depth_3, echo=F, eval=eval_missingdepth}
+
+
+knitr::kable(caption = "Profondeurs suggérées",
+             missingdepth_report$new, 
+             format = "html",
+             row.names = F,
+             col.names = c("trait",
+                           "station",
+                           "date debut (ET)",
+                           "date fin (ET)",
+                           "prof debut (m)",
+                           "prof fin (m)"),
+             table.attr = 'class="table vlines"')
+```
+
+
+```{r msg_missingdepth, eval=!eval_missingdepth, echo=F}
+cat("(!) Aucune observation de profondeur manquante")
+```
+
+
+
+
+
+
