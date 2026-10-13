@@ -4,3 +4,7 @@
 *.html
 *.csv
 *.gpx
+reports/validation_*
+
+# exceptions
+!reports/report_example.html
