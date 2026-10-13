@@ -26,6 +26,14 @@ andes_xycoord_path <- file.path("inputs", andes_xycoord_file)
 fishevent_path <- file.path("inputs", fishevent_file)
 sensor_path <- file.path("inputs", sensor_file)
 
+# make paths absolute: the report is knitted from the R/ folder
+set_path <- normalizePath(set_path, mustWork = FALSE)
+sta_path <- normalizePath(sta_path, mustWork = FALSE)
+ship_xycoord_path <- normalizePath(ship_xycoord_path, mustWork = FALSE)
+andes_xycoord_path <- normalizePath(andes_xycoord_path, mustWork = FALSE)
+fishevent_path <- normalizePath(fishevent_path, mustWork = FALSE)
+sensor_path <- normalizePath(sensor_path, mustWork = FALSE)
+
 # check for files
 if (!file.exists(set_path)) stop("File not found: ", set_path, call. = FALSE)
 if (!file.exists(sta_path)) stop("File not found: ", sta_path, call. = FALSE)
@@ -41,10 +49,10 @@ SysTime_compact <- format(Sys.time(), "%Y%m%d-%Hh")
 ############### #
 # create report
 ############### #
-out_dir <- "reports"
+out_dir <- normalizePath("reports")
 
 out_file <- rmarkdown::render(
-  input       = "validation_report.Rmd",
+  input       = file.path("R", "validation_report.Rmd"),
   params      = list(mission_id = mission_id,
                      sta_path = sta_path,
                      set_path = set_path,
