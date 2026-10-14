@@ -1,7 +1,7 @@
 # Validation des métadonnées de traits (Andes)
 
 Routine R qui génère un rapport HTML de validation sommaire des métadonnées de traits
-(coordonnées lat/lon et prof.) saisies dans Andes lors du relevé pétoncle.
+(coordonnées lat/lon et prof.) saisies dans Andes lors du relevé.
 
 Le rapport repère les irrégularités et propose des valeurs de remplacement tirées des
 données de navigation du navire. **Aucune correction n'est appliquée
