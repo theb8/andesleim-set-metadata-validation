@@ -1,10 +1,10 @@
 # Validation des métadonnées de traits (Andes)
 
 Routine R qui génère un rapport HTML de validation sommaire des métadonnées de traits
-(« information du trait ») saisies dans Andes lors du relevé pétoncle.
+(coordonnées lat/lon et prof.) saisies dans Andes lors du relevé pétoncle.
 
 Le rapport repère les irrégularités et propose des valeurs de remplacement tirées des
-données de navigation du navire et des capteurs. **Aucune correction n'est appliquée
+données de navigation du navire. **Aucune correction n'est appliquée
 automatiquement** : l'utilisateur doit effectuer les corrections manuellement dans Andes.
 
 ## Vérifications effectuées
@@ -14,11 +14,12 @@ Les traits CTD sont exclus ; seuls les traits de pêche sont validés.
 1. **Distances de draguage** : statistiques descriptives de la distance début–fin de chaque
    trait et détection des valeurs aberrantes (*outliers*) par écart interquartile (1,5 × IQR).
    Pour chaque *outlier*, des coordonnées de remplacement sont suggérées à partir des
-   *waypoints* du navire.
+   *waypoints* du navire (provenant du logiciel Rosepoint sur le Leim).
 2. **Coordonnées manquantes** : traits ayant au moins une latitude/longitude de début ou de
-   fin manquante, avec coordonnées et *timestamps* suggérés.
+   fin manquante, avec coordonnées et *timestamps* suggérés. Les coordonnées de remplacement sont suggérées à partir des
+   *waypoints* du navire (provenant du logiciel Rosepoint sur le Leim)
 3. **Profondeurs manquantes** : traits sans profondeur de début ou de fin, avec profondeurs
-   suggérées à partir des données de capteurs (`true_depth`).
+   suggérées à partir des données de capteurs (`true_depth`) provenant du rapport ANdes.
 
 Chaque section inclut des tableaux comparatifs et des cartes situant les positions
 suggérées par rapport aux stations prévues.
@@ -37,6 +38,7 @@ Tous les fichiers doivent être déposés dans le dossier `inputs/`.
 | Navigation du navire | timonerie | fichier `.gpx` |
 
 Le fichier `.gpx` de la timonerie doit contenir les couches `track_points` et `waypoints`.
+L'entité `track_points` correspond à l'itinéraire complet du navire tandis que `waypoints` comprends les évènements spéciaux.
 Le nom de chaque *waypoint* de début/fin de trait doit être une date+heure au format
 `AAAA-MM-JJ HH:MM:SS`, **en heure de l'Est (ET)** et non en UTC.
 
@@ -73,6 +75,7 @@ reports/                  # rapports générés
 
 ## Limites connues
 
-- L'utilisateur doit faire les modifications manuellement dans andes. Faire attention aux fuseaux horaires lors de la transcription des dates.
+- L'utilisateur doit faire les modifications manuellement dans andes.
+- Faire attention aux fuseaux horaires lors de la transcription des dates.
 
 Auteur : A. Théberge
